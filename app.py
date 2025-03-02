@@ -1,44 +1,45 @@
 from fastapi import FastAPI
 import uvicorn
-from prediction_model_instance.Model import CarSaleModel, CarSaleFactors
+from prediction_model_instance.load_model import CarSaleFactors, ModelLoader
 import pandas as pd
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-    
-app = FastAPI()
-model = CarSaleModel()
+import numpy as np
+
+# Загрузка модели при старте сервиса
+model_loader = ModelLoader('model.pkl', 'dataset_with_electro.csv')
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Загружаем модель
+    model = model_loader.load_model()
+    # Сохраняем модель в app.state
+    app.state.model = model
+    yield
+    print("Приложение завершает свою работу.")
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Разрешаем запросы с фронтенда
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:3333"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get('/')
-def index():
-    '''
-    Первая строка.
-    '''
-    return {'message': 'Hello, world!'}
-
-@app.post('/predict')
-def predict_sales(cars: CarSaleFactors):
+@app.post('/get_prediction_for_one_car')
+def get_prediction_for_one_car(cars: CarSaleFactors):
     
-    data_dict = pd.DataFrame(
-        {
-            'year': [cars.year],
-            'km_driven': [cars.km_driven],
-            'fuel': [cars.fuel],
-            'seller_type': [cars.seller_type],
-            'transmission': [cars.transmission],
-            'owner': [cars.owner],
-        }
-    )
+    model = app.state.model
+
+    data_for_pred = pd.DataFrame([cars.model_dump()])
  
-    prediction = model.predict_sales(data_dict)
-    return prediction
+    prediction = np.exp(model.predict(data_for_pred)) - 1
+
+    return round(float(prediction[0]), 1)
 
 if __name__ == '__main__':
     uvicorn.run(app, host='127.0.0.1', port=4444)
