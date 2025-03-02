@@ -1,0 +1,16 @@
+columns:
+  - brand
+  - year
+  - mileage
+  - body_type
+  - fuel_type
+  - engine_volume
+  - engine_power
+  - transmission
+  - drive
+  - wheel
+  - state
+  - owners_count
+  - pts
+  - customs
+  - price
