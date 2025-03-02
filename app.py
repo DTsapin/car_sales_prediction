@@ -31,7 +31,7 @@ app.add_middleware(
 )
 
 @app.post('/get_prediction_for_one_car')
-def get_prediction_for_one_car(cars: CarSaleFactors):
+async def get_prediction_for_one_car(cars: CarSaleFactors):
     
     model = app.state.model
 
