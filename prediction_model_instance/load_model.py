@@ -23,9 +23,8 @@ class CarSaleFactors(BaseModel):
     customs: str
 
 class ModelLoader:
-    def __init__(self, model_path: str, data_path: str):
+    def __init__(self, model_path: str):
         self.model_path = os.path.join(os.path.dirname(__file__), 'model_object', model_path)
-        self.data_loader = DataLoader(filepath=data_path, config_path='config.yaml')
         self.model_trainer = ModelTrainer(self.model_path)
 
     def load_model(self):
@@ -37,7 +36,8 @@ class ModelLoader:
         else:
             # TODO нужна проверка на наличие директории
             print("Файл модели не найден. Запускаем подготовку данных и обучение...")
-            df = self.data_loader.load()
+            data_loader = DataLoader(filepath='dataset_with_electro.csv', config_path='config.yaml')
+            df = data_loader.load()
             model = self.model_trainer.train_on_partitions(df)
             joblib.dump(model, self.model_path)
             print("Модель обучена и сохранена!")

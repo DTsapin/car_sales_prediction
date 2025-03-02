@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 
 # Загрузка модели при старте сервиса
-model_loader = ModelLoader('model.pkl', 'dataset_with_electro.csv')
+model_loader = ModelLoader('model.pkl')
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
