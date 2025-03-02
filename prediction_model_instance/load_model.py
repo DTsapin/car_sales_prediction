@@ -24,6 +24,7 @@ class CarSaleFactors(BaseModel):
 
 class ModelLoader:
     def __init__(self, model_path: str):
+        # TODO нужна проверка на наличие директории
         self.model_path = os.path.join(os.path.dirname(__file__), 'model_object', model_path)
         self.model_trainer = ModelTrainer(self.model_path)
 
