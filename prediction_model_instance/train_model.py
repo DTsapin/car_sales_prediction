@@ -5,23 +5,26 @@ from catboost import CatBoostRegressor
 from dask import dataframe as dd
 
 class ModelTrainer:
-    def __init__(self, model_path: str = "model.pkl"):
-        self.model_path = os.path.join(os.path.dirname(__file__), '..', 'model_object', model_path)
-        self.model = None
+    # TODO названия модели - в таск
+    def __init__(self, model_directory: str, model_name: str = "model.pkl"):
+        self.model_directory = model_directory
+        self.model_name = model_name
+        self.model_path = os.path.join(os.path.dirname(__file__), '..', model_directory, model_name)
 
-    def split_data(df: dd.DataFrame):
-        """Разделяет данные на обучающую и тестовую выборки"""
+    def split_data(self, df: dd.DataFrame):
+        """Разделяем данные на обучающую и тестовую выборки"""
         train_df = df.partitions[:-1]
         test_df = df.partitions[-1]
         return train_df, test_df
 
     def preprocess_partition(self, batch):
-        """Обрабатываем каждую партицию: удаляем пропуски, дубликаты, логарифмируем mileage"""
+        """Обрабатываем каждую партицию: удаляем пропуски, дубликаты"""
         batch = batch.dropna().drop_duplicates()
         return batch
 
     def train_on_partitions(self, df: dd.DataFrame) -> CatBoostRegressor:
         """Обучает CatBoost по партициям"""
+        # TODO Избавиться от хардкода гиперпараметров модели, продумать
         params = {"learning_rate": 0.15, "iterations": 300, "depth": 5, "random_state": 42}
         model = CatBoostRegressor(**params, verbose=50)
 
@@ -43,10 +46,9 @@ class ModelTrainer:
 
         return model
 
-    def save_model(self):
-        """Сохраняет модель в файл"""
-        if self.model:
-            joblib.dump(self.model, self.model_path)
+    def save_model(self, model, model_path):
+        """Сохраняет модель в файл. В функцию подается возвращаемый инстанс модели из функции train_on_partitions"""
+        joblib.dump(model, model_path)
 
     def predict_on_test_partitions(self, df: dd.DataFrame):
         """Делает прогнозы"""
@@ -58,6 +60,7 @@ class ModelTrainer:
             batch = self.preprocess_partition(batch)
             X_batch = batch.drop(columns=["price"])
             y_batch = batch["price"]
+            # Обратное логарифмирование
             y_pred = np.exp(self.model.predict(X_batch)) - 1
             predictions.append(y_pred)
             actuals.append(y_batch)

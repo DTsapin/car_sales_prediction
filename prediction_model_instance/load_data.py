@@ -1,22 +1,15 @@
 import dask.dataframe as dd
-import yaml
 import os
 
 class DataLoader:
-    def __init__(self, filepath: str, config_path: str):
-        self.filepath = os.path.join(os.path.dirname(__file__), '..', 'dataset', filepath)
-        self.config_path = os.path.join(os.path.dirname(__file__), '..', 'config', config_path)
-        self.columns = self._load_config()
+    
+    def __init__(self):
+        self.db_connection_string = os.getenv("DB_CONNECT_STRING")
 
-    def _load_config(self):
-        """Загружает список колонок из YAML-конфига"""
-        with open(self.config_path, "r") as file:
-            config = yaml.safe_load(file)
-        columns = config.get("columns", [])
-        return columns
-
-    def load(self):
-        """Загружает CSV в Dask DataFrame, используя колонки из конфига"""
-        data_dask = dd.read_csv(self.filepath, assume_missing=True)
-        data_dask = data_dask[self.columns]
+    def get_data(self, table_name: str) -> dd.DataFrame:
+        """Получение данных из базы PostgreSQL
+        """
+        # TODO брать nparitions из конфига, или же реализовать их расчет в зависимости от количества строк в таблице
+        data_dask = dd.read_sql(table_name, self.db_connection_string, npartitions = 19, index_col="id")
+        
         return data_dask
