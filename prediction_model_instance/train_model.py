@@ -21,7 +21,7 @@ class ModelTrainer:
         return batch
 
     def train_on_partitions(self, df: dd.DataFrame) -> CatBoostRegressor:
-        """Обучает CatBoost по партициям с возможностью дообучения"""
+        """Обучает CatBoost по партициям"""
         params = {"learning_rate": 0.15, "iterations": 300, "depth": 5, "random_state": 42}
         model = CatBoostRegressor(**params, verbose=50)
 
@@ -49,7 +49,7 @@ class ModelTrainer:
             joblib.dump(self.model, self.model_path)
 
     def predict_on_test_partitions(self, df: dd.DataFrame):
-        """Делает предсказания"""
+        """Делает прогнозы"""
         
         predictions = []
         actuals = []
