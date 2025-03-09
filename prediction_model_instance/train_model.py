@@ -23,7 +23,7 @@ class ModelTrainer:
         return batch
 
     def train_on_partitions(self, df: dd.DataFrame) -> CatBoostRegressor:
-        """Обучает CatBoost по партициям"""
+        """Обучаем модель по партициям данных"""
         # TODO Избавиться от хардкода гиперпараметров модели, продумать
         params = {"learning_rate": 0.15, "iterations": 300, "depth": 5, "random_state": 42}
         model = CatBoostRegressor(**params, verbose=50)
@@ -47,11 +47,11 @@ class ModelTrainer:
         return model
 
     def save_model(self, model, model_path):
-        """Сохраняет модель в файл. В функцию подается возвращаемый инстанс модели из функции train_on_partitions"""
+        """Сохраняем модель в файл. В функцию подается возвращаемый инстанс модели из функции train_on_partitions"""
         joblib.dump(model, model_path)
 
     def predict_on_test_partitions(self, df: dd.DataFrame):
-        """Делает прогнозы"""
+        """Делаем прогнозы"""
         
         predictions = []
         actuals = []

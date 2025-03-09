@@ -37,7 +37,7 @@ class ModelLoader:
             os.makedirs(directory_path)
 
     def load_model(self):
-        """Загружает модель из файла или обучает новую"""
+        """Загружаем модель из файла или обучаем новую, если модели нет"""
 
         if os.path.exists(self.model_path):
             print("Модель найдена! Загружаем...")
