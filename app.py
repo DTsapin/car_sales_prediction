@@ -52,7 +52,7 @@ async def get_prediction_for_multiple_cars(file: UploadFile = File(...)):
 
     # Чтение содержимого файла как байтов
     contents = await file.read()
-    # Создаём объект BytesIO для передачи данных в pandas
+    # Создаём объект BytesIO
     data = BytesIO(contents)
 
     df = pd.read_excel(data)
