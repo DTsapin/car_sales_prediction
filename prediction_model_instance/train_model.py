@@ -24,7 +24,7 @@ class ModelTrainer:
 
     def train_on_partitions(self, df: dd.DataFrame) -> CatBoostRegressor:
         """Обучаем модель по партициям данных"""
-        # TODO Избавиться от хардкода гиперпараметров модели, продумать
+        # TODO Избавиться от хардкода гиперпараметров модели, продумать как это сделать
         params = {"learning_rate": 0.15, "iterations": 300, "depth": 5, "random_state": 42}
         model = CatBoostRegressor(**params, verbose=50)
 
