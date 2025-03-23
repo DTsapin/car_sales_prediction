@@ -2,7 +2,7 @@ import joblib
 import numpy as np
 from catboost import CatBoostRegressor
 from dask import dataframe as dd
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, r2_score
 import optuna
 
 class ModelTrainer:
@@ -110,3 +110,17 @@ class ModelTrainer:
             actuals.append(y_batch)
 
         return np.concatenate(predictions), np.concatenate(actuals)
+    
+    def compute_model_metrics(self, val_true, val_preds):
+        """Считаем метрики для модели"""
+        mse = mean_squared_error(val_true, val_preds)
+        rmse = (np.sqrt(mean_squared_error(val_true, val_preds)))
+        mae = mean_absolute_error(val_true, val_preds)
+        mape = mean_absolute_percentage_error(val_true, val_preds)
+        r2 = r2_score(val_true, val_preds)
+        print("Оценка тестового множества модели CatBoost:")
+        print('MSE: {:.2f}'.format(mse))
+        print('RMSE: {:.2f}'.format(rmse))
+        print('MAE: {:.2f}'.format(mae))
+        print('MAPE: {:.2f}'.format(mape))
+        print('R2: {:.2f}'.format(r2))
