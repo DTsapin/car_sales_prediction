@@ -7,16 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from io import BytesIO
 from fastapi.responses import StreamingResponse
+from config.config import targets_dict
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    task_names = list(targets_dict.keys())
     # Загрузка модели при старте сервиса TODO избавиться тут от хардкода, разнести модели по таскам
-    model_loader = ModelLoader('model.pkl', 'model_object')
-    # Загружаем модель
-    model = model_loader.load_model()
-    # Сохраняем модель в app.state
-    app.state.model = model
+    model_loader = ModelLoader()
+    # Загружаем словарь с моделями
+    models = model_loader.load_model(task_names)
+    # Сохраняем модели в app.state
+    app.state.models = models
     yield
     print("Приложение завершает свою работу.")
 
@@ -32,10 +34,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post('/get_prediction_for_one_car')
-async def get_prediction_for_one_car(cars: CarSaleFactors):
+@app.post('/get_sale_prediction_for_one_car')
+async def get_sale_prediction_for_one_car(cars: CarSaleFactors):
     
-    model = app.state.model
+    model = app.state.models['car_sales_pred']
 
     # Делаем датафрейм, где колонки - поля pydantic-класса
     data_for_pred = pd.DataFrame([cars.model_dump()])
@@ -45,10 +47,10 @@ async def get_prediction_for_one_car(cars: CarSaleFactors):
 
     return round(float(prediction[0]), 1)
 
-@app.post("/get_prediction_for_multiple_cars")
-async def get_prediction_for_multiple_cars(file: UploadFile = File(...)):
+@app.post("/get_sale_prediction_for_multiple_cars")
+async def get_sale_prediction_for_multiple_cars(file: UploadFile = File(...)):
 
-    model = app.state.model
+    model = app.state.models['car_sales_pred']
 
     # Чтение содержимого файла как байтов
     contents = await file.read()
@@ -58,7 +60,7 @@ async def get_prediction_for_multiple_cars(file: UploadFile = File(...)):
     df = pd.read_excel(data)
 
     # Осуществление прогноза
-    df['selling_price'] = np.exp(model.predict(df)) - 1
+    df['predict_value'] = np.exp(model.predict(df)) - 1
 
     # Обновляем xlsx-файл
     output = BytesIO()

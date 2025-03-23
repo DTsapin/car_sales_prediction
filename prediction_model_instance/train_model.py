@@ -1,15 +1,12 @@
 import joblib
-import os
 import numpy as np
 from catboost import CatBoostRegressor
 from dask import dataframe as dd
+from sklearn.metrics import mean_squared_error
+import optuna
 
 class ModelTrainer:
-    # TODO названия модели - в таск
-    def __init__(self, model_directory: str, model_name: str = "model.pkl"):
-        self.model_directory = model_directory
-        self.model_name = model_name
-        self.model_path = os.path.join(os.path.dirname(__file__), '..', model_directory, model_name)
+    # TODO названия модели - в таск, аналогично привязка к таргетам
 
     def split_data(self, df: dd.DataFrame):
         """Разделяем данные на обучающую и тестовую выборки"""
@@ -21,28 +18,75 @@ class ModelTrainer:
         """Обрабатываем каждую партицию: удаляем пропуски, дубликаты"""
         batch = batch.dropna().drop_duplicates()
         return batch
+    
+    def training_pipe(self, model, partition, i, target):
+         # Проходим по чанкам и обучаем модель по частям
+        partition = partition.compute()  # Загружаем партицию в RAM
+        partition = self.preprocess_partition(partition)
+        cat_features = [col for col in partition.columns if partition[col].dtype == "string[pyarrow]"]
+        partition[cat_features] = partition[cat_features].astype("category")
 
-    def train_on_partitions(self, df: dd.DataFrame) -> CatBoostRegressor:
+        X_train = partition.drop(columns=["price"])
+        y_train = np.log(partition["price"] + 1)
+
+        if i == 0:
+            model.fit(X_train, y_train, cat_features=cat_features)
+        else:
+            model.fit(X_train, y_train, cat_features=cat_features, init_model=model)
+
+        return model
+    
+    def opt_models(
+        self, train_df: dd.DataFrame, test_df: dd.DataFrame, target, task
+    ) -> optuna.study.Study:
+        """Блок подбора гиперпараметров"""
+
+        def objective(trial, train_df=train_df, target=target):
+        # Формируем словарь гиперпараметров TODO разобраться с дублирующимся кодом
+            params = {
+            "max_depth": trial.suggest_int("max_depth", 3, 4),
+            "iterations": trial.suggest_int("iterations", 300, 500, step = 50),
+            "l2_leaf_reg": trial.suggest_float(
+            "l2_leaf_reg", 0.001, 1, log=True
+            ),
+            "learning_rate": trial.suggest_float(
+            "learning_rate", 0.01, 0.2, step=0.05
+                        ),
+            "verbose": 0
+                        }
+
+            # Инициализируем модель с параметрами
+            model = CatBoostRegressor(**params)
+
+            # Проходим по чанкам и оптимизируем модель по частям
+            partitions = train_df.to_delayed()
+            for i, partition in enumerate(partitions):
+                model = self.training_pipe(model, partition, i=i, target=target)
+
+            # Оцениваем модель
+            valid_pred, valid_actuals = self.predict_on_test_partitions(test_df, model, target)
+            return mean_squared_error(valid_actuals, valid_pred) ** 0.5  # RMSE
+
+        # Запускаем Optuna
+        study = optuna.create_study(direction="minimize", study_name=task)
+        study.optimize(objective, n_trials=10, n_jobs=-1)
+        return study
+
+
+    def train_on_partitions(self, df: dd.DataFrame, study_params: dict[str, int | float], target) -> CatBoostRegressor:
         """Обучаем модель по партициям данных"""
-        # TODO Избавиться от хардкода гиперпараметров модели, продумать как это сделать + прикрутить clearML сюда и в докер
-        params = {"learning_rate": 0.15, "iterations": 300, "depth": 5, "random_state": 42}
+        params = {
+                "learning_rate": study_params.best_params.get("learning_rate"),
+                "l2_leaf_reg": study_params.best_params.get("l2_leaf_reg"),
+                "max_depth": study_params.best_params.get("max_depth"),
+                "iterations": study_params.best_params.get("iterations"),
+        }
         model = CatBoostRegressor(**params, verbose=50)
 
+        # Проходим по чанкам и обучаем модель по частям
         partitions = df.to_delayed()
         for i, partition in enumerate(partitions):
-            partition = partition.compute()
-            partition = self.preprocess_partition(partition)
-
-            cat_features = [col for col in partition.columns if partition[col].dtype == "string[pyarrow]"]
-            partition[cat_features] = partition[cat_features].astype("category")
-
-            X_train = partition.drop(columns=["price"])
-            y_train = np.log(partition["price"] + 1)
-
-            if i == 0:
-                model.fit(X_train, y_train, cat_features=cat_features)
-            else:
-                model.fit(X_train, y_train, cat_features=cat_features, init_model=model)
+            model = self.training_pipe(model, partition, i=i, target=target)
 
         return model
 
@@ -50,7 +94,7 @@ class ModelTrainer:
         """Сохраняем модель в файл. В функцию подается возвращаемый инстанс модели из функции train_on_partitions"""
         joblib.dump(model, model_path)
 
-    def predict_on_test_partitions(self, df: dd.DataFrame):
+    def predict_on_test_partitions(self, df: dd.DataFrame, model, target):
         """Делаем прогнозы"""
         
         predictions = []
@@ -61,7 +105,7 @@ class ModelTrainer:
             X_batch = batch.drop(columns=["price"])
             y_batch = batch["price"]
             # Обратное логарифмирование
-            y_pred = np.exp(self.model.predict(X_batch)) - 1
+            y_pred = np.exp(model.predict(X_batch)) - 1
             predictions.append(y_pred)
             actuals.append(y_batch)
 
