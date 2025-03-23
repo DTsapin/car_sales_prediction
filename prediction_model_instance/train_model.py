@@ -21,7 +21,7 @@ class ModelTrainer:
     
     def training_pipe(self, model, partition, i, target):
          # Проходим по чанкам и обучаем модель по частям
-        partition = partition.compute()  # Загружаем партицию в RAM
+        partition = partition.compute()
         partition = self.preprocess_partition(partition)
         cat_features = [col for col in partition.columns if partition[col].dtype == "string[pyarrow]"]
         partition[cat_features] = partition[cat_features].astype("category")
