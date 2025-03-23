@@ -8,5 +8,5 @@ task_tables_dict = {
 
 # Колонки таргетов для тасков
 targets_dict = {
-    "car_sales_pred": ["price"],
+    "car_sales_pred": "price",
 }

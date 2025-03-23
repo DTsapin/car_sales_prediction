@@ -26,8 +26,8 @@ class ModelTrainer:
         cat_features = [col for col in partition.columns if partition[col].dtype == "string[pyarrow]"]
         partition[cat_features] = partition[cat_features].astype("category")
 
-        X_train = partition.drop(columns=["price"])
-        y_train = np.log(partition["price"] + 1)
+        X_train = partition.drop(columns=[target])
+        y_train = np.log(partition[target] + 1)
 
         if i == 0:
             model.fit(X_train, y_train, cat_features=cat_features)
@@ -102,8 +102,8 @@ class ModelTrainer:
         for partition in df.to_delayed():
             batch = partition.compute()
             batch = self.preprocess_partition(batch)
-            X_batch = batch.drop(columns=["price"])
-            y_batch = batch["price"]
+            X_batch = batch.drop(columns=[target])
+            y_batch = batch[target]
             # Обратное логарифмирование
             y_pred = np.exp(model.predict(X_batch)) - 1
             predictions.append(y_pred)
