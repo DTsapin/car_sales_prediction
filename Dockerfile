@@ -13,7 +13,7 @@ WORKDIR /tmp
 RUN poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-ansi
 
-# Копируем исходный код
+# Копируем исходный код приложения
 WORKDIR /car_sales_prediction
 COPY . .
 
