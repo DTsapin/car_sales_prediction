@@ -10,3 +10,8 @@ task_tables_dict = {
 targets_dict = {
     "car_sales_pred": "price",
 }
+
+models_mapping_dict = {
+    "get_sale_prediction_for_one_car": "car_sales_pred",
+    "get_sale_prediction_for_multiple_cars": "car_sales_pred",
+}

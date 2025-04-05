@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from io import BytesIO
 from fastapi.responses import StreamingResponse
-from config.config import targets_dict
+from config.config import targets_dict, models_mapping_dict
 
 
 @asynccontextmanager
@@ -37,7 +37,8 @@ app.add_middleware(
 @app.post('/get_sale_prediction_for_one_car')
 async def get_sale_prediction_for_one_car(cars: CarSaleFactors):
     
-    model = app.state.models['car_sales_pred']
+    model_name = models_mapping_dict['get_sale_prediction_for_one_car']
+    model = app.state.models[model_name]
 
     # Делаем датафрейм, где колонки - поля pydantic-класса
     data_for_pred = pd.DataFrame([cars.model_dump()])
@@ -50,7 +51,8 @@ async def get_sale_prediction_for_one_car(cars: CarSaleFactors):
 @app.post("/get_sale_prediction_for_multiple_cars")
 async def get_sale_prediction_for_multiple_cars(file: UploadFile = File(...)):
 
-    model = app.state.models['car_sales_pred']
+    model_name = models_mapping_dict['get_sale_prediction_for_multiple_cars']
+    model = app.state.models[model_name]
 
     # Чтение содержимого файла как байтов
     contents = await file.read()

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 import os
 from config.config import targets_dict, task_tables_dict
 
-# Инициализация класса, описывающего входные факторы модели
+# Инициализация класса, описывающего входные факторы модели прогноза стоимости авто
 class CarSaleFactors(BaseModel):
     brand: str
     year: float
