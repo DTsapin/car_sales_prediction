@@ -1,0 +1,22 @@
+FROM python:3.11.9-slim
+
+WORKDIR /car_sales_prediction
+
+RUN apt-get update && apt install -y nano git curl wget
+
+# Устанавливаем poetry
+RUN pip install poetry
+
+# Копируем зависимости и устанавливаем их
+COPY pyproject.toml poetry.lock /tmp/
+WORKDIR /tmp
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi
+
+# Копируем исходный код
+WORKDIR /car_sales_prediction
+COPY . .
+
+ENV PYTHONPATH=.
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
