@@ -1,1 +1,4 @@
 catboost_info
+*pkl
+__pycache__
+*csv
