@@ -118,7 +118,7 @@ class ModelTrainer:
         mae = mean_absolute_error(val_true, val_preds)
         mape = mean_absolute_percentage_error(val_true, val_preds)
         r2 = r2_score(val_true, val_preds)
-        print("Оценка тестового множества модели CatBoost:")
+        print("Оценка тестового множества:")
         print('MSE: {:.2f}'.format(mse))
         print('RMSE: {:.2f}'.format(rmse))
         print('MAE: {:.2f}'.format(mae))
