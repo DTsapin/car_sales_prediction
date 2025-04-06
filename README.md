@@ -43,6 +43,13 @@
 
 ![](./images/pred_on_file.png)
 
+Запущенный Docker-контейнер:
+
+![](./images/docker.png)
+
+Консоль Docker-контейнера:
+
+![](./images/docker_2.png)
 
 Дальнейшее развитие проекта:
 
