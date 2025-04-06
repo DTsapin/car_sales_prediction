@@ -2,7 +2,7 @@ FROM python:3.11.9-slim
 
 WORKDIR /car_sales_prediction
 
-RUN apt-get update && apt install -y nano git curl wget
+RUN apt-get update && apt install -y nano git curl wget libpq-dev gcc
 
 # Устанавливаем poetry
 RUN pip install poetry
@@ -11,9 +11,9 @@ RUN pip install poetry
 COPY pyproject.toml poetry.lock /tmp/
 WORKDIR /tmp
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+    && poetry install --no-interaction --no-ansi --no-root
 
-# Копируем исходный код приложения
+# Копируем исходный код
 WORKDIR /car_sales_prediction
 COPY . .
 

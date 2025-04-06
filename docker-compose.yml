@@ -5,7 +5,7 @@ services:
     build: .
     container_name: car_sales_web
     ports:
-      - "8000:8000"
+      - "8000:8000"  # Для проброса портов
     environment:
       - PYTHONPATH=.
     volumes:
