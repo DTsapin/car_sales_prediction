@@ -1,9 +1,18 @@
-# Блок с запросами к PostgreSQL DB
+# Запросы к PostgreSQL
 
 def get_query(
     task: str
 ) -> str:
-    """Метод для получения нужного запроса к базе данных
+    """
+        Метод для формирования запроса к базе данных.
+
+        Args
+        ----------
+        task: str, название таска для обучения модели
+
+        Returns
+        -------
+        query_str: str, строка запроса к базе данных.
     """
     queries_dict = {"car_sales_pred": CAR_SALES_COUNT_QUERY,
     }

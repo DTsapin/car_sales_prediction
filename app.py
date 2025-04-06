@@ -12,6 +12,7 @@ from config.config import targets_dict, models_mapping_dict
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """FastAPI-функция жизненного цикла сервиса"""
     task_names = list(targets_dict.keys())
     # Загрузка модели при старте сервиса TODO избавиться тут от хардкода, разнести модели по таскам
     model_loader = ModelLoader()
@@ -35,13 +36,24 @@ app.add_middleware(
 )
 
 @app.post('/get_sale_prediction_for_one_car')
-async def get_sale_prediction_for_one_car(cars: CarSaleFactors):
+async def get_sale_prediction_for_one_car(car: CarSaleFactors):
+    """
+        FastAPI-эндпоинт для прогноза стоимости авто.
+
+        Args
+        ----------
+        car: Class, pydantic-модель, описывающая факторы стоимости авто
+
+        Returns
+        -------
+        prediction: float, прогнозная стоимость авто
+    """
     
     model_name = models_mapping_dict['get_sale_prediction_for_one_car']
     model = app.state.models[model_name]
 
     # Делаем датафрейм, где колонки - поля pydantic-класса
-    data_for_pred = pd.DataFrame([cars.model_dump()])
+    data_for_pred = pd.DataFrame([car.model_dump()])
 
     # Прогноз с обратным логарифмированием
     prediction = np.exp(model.predict(data_for_pred)) - 1
@@ -50,6 +62,18 @@ async def get_sale_prediction_for_one_car(cars: CarSaleFactors):
 
 @app.post("/get_sale_prediction_for_multiple_cars")
 async def get_sale_prediction_for_multiple_cars(file: UploadFile = File(...)):
+
+    """
+        FastAPI-эндпоинт для прогноза стоимости сразу нескольких авто (из excel-файла).
+
+        Args
+        ----------
+        file: UploadFile = File(...), объект excel-файла
+
+        Returns
+        -------
+        объект StreamingResponse, возвращающий excel-файл со значениями прогнозов
+    """
 
     model_name = models_mapping_dict['get_sale_prediction_for_multiple_cars']
     model = app.state.models[model_name]

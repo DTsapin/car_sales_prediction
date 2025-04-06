@@ -6,20 +6,84 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolu
 import optuna
 
 class ModelTrainer:
-    # TODO названия модели - в таск, аналогично привязка к таргетам
+    """
+    Класс для обучения моделей.
 
-    def split_data(self, df: dd.DataFrame):
-        """Разделяем данные на обучающую и тестовую выборки"""
+    ...
+
+    Атрибуты
+    ----------
+    None
+
+    Методы
+    -------
+    split_data:
+        Метод для разделения данных на обучающую и тестовую выборки.
+    preprocess_partition:
+        Метод для предобработки каждого чанка (партиции в терминологии Dask) датафрейма.
+    training_pipe:
+        Метод пайплайна обучения модели.
+    opt_models
+        Метод для оптимизационного обучения модели.
+    objective
+        Метод внутри метода opt_models, выполняет задачу подбора гиперпараметров.
+    train_on_partitions
+        Метод для обучения модели по чанкам (по партициям).
+    save_model:
+        Метод для сохранения модели.
+    predict_on_test_partitions:
+        Метод для прогноза на тестовых чанках.
+    compute_model_metrics:
+        Метод для расчета метрик модели (заглушка для последующей интеграции с ClearML).
+    """
+
+    def split_data(self, df: dd.DataFrame) -> dd.DataFrame:
+        """
+        Метод для разделения данных на обучающую и тестовую выборки.
+
+        Args
+        ----------
+        df: dd.DataFrame, Dask-датафрейм
+
+        Returns
+        -------
+        train_df, test_df: tuple[dd.Dataframe], разделенный на обучение/тест датафрейм.
+        """
         train_df = df.partitions[:-1]
         test_df = df.partitions[-1]
         return train_df, test_df
 
-    def preprocess_partition(self, batch):
-        """Обрабатываем каждую партицию: удаляем пропуски, дубликаты"""
+    def preprocess_partition(self, batch: dd.DataFrame) -> dd.DataFrame:
+        """
+        Метод для предобработки каждого чанка (партиции) Dask-датафрейма.
+
+        Args
+        ----------
+        batch: dd.Dataframe являющийся чанком Dask-датафрейма (ленивый датафрейм)
+
+        Returns
+        -------
+        batch: dd.DataFrame, предобработанный чанк.
+        """
         batch = batch.dropna().drop_duplicates()
         return batch
     
-    def training_pipe(self, model, partition, i, target):
+    def training_pipe(self, model: CatBoostRegressor, partition: dd.DataFrame, 
+                      iteration: int, target: str) -> CatBoostRegressor:
+        """
+        Метод для формирования пайплайна обучения модели по чанкам.
+
+        Args
+        ----------
+        model: CatBoostRegressor, объект модели
+        partition: dd.DataFrame, чанк датафрейма
+        iteration: int, порядковый номер итерации (номер чанка)
+        target: целевая колонка датафрейма
+
+        Returns
+        -------
+        model: CatBoostRegressor: обученная модель
+        """
          # Проходим по чанкам и обучаем модель по частям
         partition = partition.compute()
         partition = self.preprocess_partition(partition)
@@ -29,7 +93,7 @@ class ModelTrainer:
         X_train = partition.drop(columns=[target])
         y_train = np.log(partition[target] + 1)
 
-        if i == 0:
+        if iteration == 0:
             model.fit(X_train, y_train, cat_features=cat_features)
         else:
             model.fit(X_train, y_train, cat_features=cat_features, init_model=model)
@@ -37,12 +101,39 @@ class ModelTrainer:
         return model
     
     def opt_models(
-        self, train_df: dd.DataFrame, test_df: dd.DataFrame, target, task
+        self, train_df: dd.DataFrame, test_df: dd.DataFrame, target: str, task: str
     ) -> optuna.study.Study:
-        """Блок подбора гиперпараметров"""
+        """
+        Метод для подбора гиперпараметров модели.
 
-        def objective(trial, train_df=train_df, target=target):
-        # Формируем словарь гиперпараметров TODO разобраться с дублирующимся кодом
+        Args
+        ----------
+        train_df: dd.DataFrame, обучающая выборка
+        test_df: dd.DataFrame, тестовая выборка
+        target: str, целевая колонка датафрейма
+        task: str: название таска для обучения модели
+
+        Returns
+        -------
+        study: optuna.study.Study, объект Optuna c best-values-ами гиперпараметров
+        """
+
+        def objective(trial: optuna.trial.Trial, train_df=train_df, test_df=test_df, target=target) -> mean_squared_error:
+            """
+        Метод, непосредственно выполняющий подбор гиперпараметров.
+
+        Args
+        ----------
+        trial: optuna.trial.Trial, специальный optuna-объект, итерация подбора гиперпараметров
+        train_df: dd.DataFrame, обучающая выборка
+        test_df: dd.DataFrame, тестовая выборка
+        target: str, целевая колонка датафрейма
+        task: str: название таска для обучения модели
+
+        Returns
+        -------
+        mean_squared_error: значение метрики MSE
+            """
             params = {
             "max_depth": trial.suggest_int("max_depth", 3, 4),
             "iterations": trial.suggest_int("iterations", 300, 500, step = 50),
@@ -60,8 +151,8 @@ class ModelTrainer:
 
             # Проходим по чанкам и оптимизируем модель по частям
             partitions = train_df.to_delayed()
-            for i, partition in enumerate(partitions):
-                model = self.training_pipe(model, partition, i=i, target=target)
+            for iteration, partition in enumerate(partitions):
+                model = self.training_pipe(model, partition, iteration=iteration, target=target)
 
             # Оцениваем модель
             valid_pred, valid_actuals = self.predict_on_test_partitions(test_df, model, target)
@@ -73,8 +164,21 @@ class ModelTrainer:
         return study
 
 
-    def train_on_partitions(self, df: dd.DataFrame, study_params: dict[str, int | float], target) -> CatBoostRegressor:
-        """Обучаем модель по партициям данных"""
+    def train_on_partitions(self, df: dd.DataFrame, study_params: dict[str, int | float], 
+                            target: str) -> CatBoostRegressor:
+        """
+        Метод для инициализации обучения модели по чанкам.
+
+        Args
+        ----------
+        df: dd.DataFrame, Dask-датафрейм
+        study_params: dict[str, int | float], словарь гиперпараметров
+        target: str, целевая колонка датафрейма
+
+        Returns
+        -------
+        model: CatBoostRegressor, инстанс обученной модели
+        """
         params = {
                 "learning_rate": study_params.best_params.get("learning_rate"),
                 "l2_leaf_reg": study_params.best_params.get("l2_leaf_reg"),
@@ -85,17 +189,40 @@ class ModelTrainer:
 
         # Проходим по чанкам и обучаем модель по частям
         partitions = df.to_delayed()
-        for i, partition in enumerate(partitions):
-            model = self.training_pipe(model, partition, i=i, target=target)
+        for iteration, partition in enumerate(partitions):
+            model = self.training_pipe(model, partition, iteration=iteration, target=target)
 
         return model
 
-    def save_model(self, model, model_path):
-        """Сохраняем модель в файл. В функцию подается возвращаемый инстанс модели из функции train_on_partitions"""
+    def save_model(self, model: str, model_path: str) -> None:
+        """
+        Метод для сохранения модели в pkl-файл.
+
+        Args
+        ----------
+        model: str, название модели
+        model_path: str, полный путь к файлу модели
+
+        Returns
+        -------
+        None
+        """
         joblib.dump(model, model_path)
 
-    def predict_on_test_partitions(self, df: dd.DataFrame, model, target):
-        """Делаем прогнозы"""
+    def predict_on_test_partitions(self, df: dd.DataFrame, model: str, target: str) -> tuple[np.array]:
+        """
+        Метод для осуществления прогнозов.
+
+        Args
+        ----------
+        df: dd.DataFrame, Dask-датафрейм с данными
+        model: str, название модели
+        target: str, название прогнозируемой величины в датафрейме
+
+        Returns
+        -------
+        np.concatenate(predictions), np.concatenate(actuals): tuple[np.array], кортеж из прогнозных и истинных данных 
+        """
         
         predictions = []
         actuals = []
@@ -111,8 +238,19 @@ class ModelTrainer:
 
         return np.concatenate(predictions), np.concatenate(actuals)
     
-    def compute_model_metrics(self, val_true, val_preds):
-        """Считаем метрики для модели"""
+    def compute_model_metrics(self, val_true: np.array, val_preds: np.array) -> None:
+        """
+        Метод для расчета метрик модели (заглушка для последующей интеграции с ClearML).
+
+        Args
+        ----------
+        val_true: np.array, массив истинных значений
+        val_preds: np.array, массив прогнозных значений
+
+        Returns
+        -------
+        None
+        """
         mse = mean_squared_error(val_true, val_preds)
         rmse = (np.sqrt(mean_squared_error(val_true, val_preds)))
         mae = mean_absolute_error(val_true, val_preds)
