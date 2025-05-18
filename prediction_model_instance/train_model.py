@@ -2,6 +2,7 @@ import joblib
 import numpy as np
 from catboost import CatBoostRegressor
 from dask import dataframe as dd
+from dask_ml.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, r2_score
 import optuna
 
@@ -49,8 +50,7 @@ class ModelTrainer:
         -------
         train_df, test_df: tuple[dd.Dataframe], разделенный на обучение/тест датафрейм.
         """
-        train_df = df.partitions[:-1]
-        test_df = df.partitions[-1]
+        train_df, test_df = train_test_split(df, test_size=0.2, shuffle=True, random_state=42)
         return train_df, test_df
 
     def preprocess_partition(self, batch: dd.DataFrame) -> dd.DataFrame:
