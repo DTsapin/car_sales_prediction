@@ -65,7 +65,7 @@ class DataLoader:
         num_rows = conn.execute(text(query)).scalar()
 
         # Рассчитываем количество партиций
-        chunk_size = 15_000
+        chunk_size = int(os.getenv("N_CHUNKS"))
         n_partitions = max(1, num_rows // chunk_size)
         return n_partitions
 
